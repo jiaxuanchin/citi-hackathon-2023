@@ -15,7 +15,8 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import datetime as dt
-import os
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 pd.options.mode.chained_assignment = None # default='warn'
 # find the symbol (i.e., google the instrument + 'yahoo finance') to any data series you are interested at
@@ -69,29 +70,30 @@ symbols_list=list(symbols_set)
 
 valid_symbols = []
 
-# Loop through symbols and filter out invalid ones
-for symbol in symbols_list:
-    try:
-        data = yf.download(symbol, period='1d')
-        if not data.empty:
-            valid_symbols.append(symbol)
-    except Exception as e:
-        print(f"Error downloading data for symbol {symbol}: {e}")
+# # Loop through symbols and filter out invalid ones
+# for symbol in symbols_list:
+#     try:
+#         data = yf.download(symbol, period='1mo')
+#         if not data.empty:
+#             valid_symbols.append(symbol)
+#     except Exception as e:
+#         print(f"Error downloading data for symbol {symbol}: {e}")
 
-# symbols_list = ['aaaaaa','NVDA','VWRA.L','IWDA.L','EIMI.L','KWEB','3067.HK','SPGP','IDRV','FCG','O87.SI','CIBR','ESPO','BOTZ','CLOU','BLOK','ARKF','ARKW','ESGE','ESGU','ESGD','PHO','FAN','LIT','ICLN','TAN','XLV','IHF','IHI','IBB','XHE','ARKG']
+valid_symbols= symbols_list
 start = dt.datetime(2018,1,1)
 end = dt.datetime(2023,8,8)
 data = yf.download(valid_symbols, start=start, end=end)
 
-# Check if a cached CSV file exists
-cache_file = 'stock_data_cache.csv'
-if os.path.isfile(cache_file):
-    # If the cached file exists, load data from it
-    data = pd.read_csv(cache_file, index_col=0, parse_dates=True)
-else:
-    # If the cached file doesn't exist, download the data and save it to a CSV file
-    data = yf.download(symbols_list, start=start, end=end)
-    data.to_csv(cache_file)  # Save data to a CSV file for future use
+# Convert the DataFrame to a PyArrow Table
+table = pa.Table.from_pandas(data)
+
+# Specify the Parquet file path
+parquet_file = 'stock_data_cache.parquet'
+
+# Write the Table to a Parquet file
+pq.write_table(table, parquet_file)
+
+print("Dataset saved to Parquet file:", parquet_file)
 
 # print(data)
 
